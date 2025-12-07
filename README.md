@@ -1,5 +1,5 @@
 # Mist SNMP Gateway
-This application is a gateway to provide Mist Cloud information through SNMP. The application is periodicly synchronising the statistics from the Mist Cloud to expose them through SNMP. 
+This application is a gateway to provide Mist Cloud information through SNMP. The application is periodically synchronising the statistics from the Mist Cloud to expose them through SNMP.
 
 This is just a proof of concept/example, and only a few information are exposed. It can be extended to provide more information.
 <div>
@@ -35,7 +35,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 A custom SNMP MIB has been written for this purpose. It can be found [here](https://github.com/tmunzer/mist_snmp_gateway/blob/main/src/mibs/MISTLAB.mib)
 
 #### Note 2
-Since this is just a proof of concept, the written MIB does not use a registered Private Enterprise Number (PEN). The enterprise OID has been randomly selected (OID .1.3.6.1.4.1.65535) and may interfer with other SNMP solutions. If it's the case, please update the `SNMP_OID` env variable, and the `enterprises` OID in the MIB file.
+Since this is just a proof of concept, the written MIB does not use a registered Private Enterprise Number (PEN). The enterprise OID has been randomly selected (OID .1.3.6.1.4.1.65535) and may interfere with other SNMP solutions. If it's the case, please update the `SNMP_OID` env variable, and the `enterprises` OID in the MIB file.
 
 # Examples
 ## Org Stats
@@ -68,30 +68,57 @@ Since this is just a proof of concept, the written MIB does not use a registered
 </div>
 
 # Installation
-This Reference Application can be used as a standalone Application, or it can be deployed as a Docker Image (recommanded).
+This Reference Application can be used as a standalone Application, or it can be deployed as a Docker Image (recommended).
 
-## Deploy the Docker version (recommanded)
-This application is available as a [Docker Image](https://hub.docker.com/repository/docker/tmunzer/mist_webhook_monitor). The Dockerfile is also available if you want top build it on your own.
+## Deploy the Docker version (recommended)
+This application is available as a [Docker Image](https://hub.docker.com/repository/docker/tmunzer/mist_snmp_gateway). The Dockerfile is also available if you want to build it on your own.
 
 The Docker Image exposes the following ports:
 * UDP161
 
 ### Run with Docker Compose
-A docker-compose file is available to deploy the App. 
+A `docker-compose.yaml` file is available to deploy the App.
 
-*Before starting*, please configure the environment variables with your values! It is recommanded to customize the Mongo User/Password. To do so, make sure to use the same values for `MONGO_INITDB_ROOT_USERNAME` and `MONGO_USER`, and for `MONGO_INITDB_ROOT_PASSWORD` and `MONGO_PASSWORD`.
+1. Copy the example environment file to `.env` in the root directory:
+   ```bash
+   cp src/env_example .env
+   ```
 
-To start it, you must have docker installed, and run the command `docker-compose up` from the folder where `docker-compose.yaml` is located.
+2. Configure the `.env` file with your values.
+   * **Note:** It is recommended to customize the Mongo User/Password (`MONGO_USER` and `MONGO_PASSWORD`). The `docker-compose.yaml` will use these values to configure the MongoDB container and the application automatically.
+   * **Note:** Keep `MONGO_HOST="mongo_server"` as this matches the service name in `docker-compose.yaml`.
 
-*Hint:* You can use the command `docker-compose up -d` to start it in background, and `docker-compose down` to stop it.
+3. Start the application:
+   ```bash
+   docker-compose up -d
+   ```
+   *Hint:* You can use `docker-compose down` to stop it.
 
 ### Manually Run the Docker version
-`   docker create -v  <path_to_config.js>/env_file:/app/.env:ro --link <mongoDB_container_name>:mongo --name="<container_name>" -p 161:161 tmunzer/mist_snmp_gateway`
+You can also run the containers manually.
 
-### Configure the Docker version
-Configuration can be done through the config file. An example of the `config.js` file can be found in `src/config_example.js`. Then, you just need to link the `config.js` file to `/app/config.js` in you container.
+1. Create the `.env` file as described above.
+2. Start MongoDB:
+   ```bash
+   docker run --name mongo_server \
+     -e MONGO_INITDB_ROOT_USERNAME=root \
+     -e MONGO_INITDB_ROOT_PASSWORD=secret \
+     -d mongo:4.4
+   ```
+   *(Note: Ensure the username/password match what you put in `.env`)*
 
-You can also use environment variables to configure the app:
+3. Start the Gateway:
+   ```bash
+   docker run -d \
+     --name mist_snmp_gateway \
+     --link mongo_server:mongo_server \
+     -p 161:161/udp \
+     --env-file .env \
+     tmunzer/mist_snmp_gateway
+   ```
+
+### Configuration Variables
+The application is configured using environment variables.
 
 Variable Name | Type | Default Value | Comment 
 ------------- | ---- | ------------- | ------- 
@@ -116,15 +143,21 @@ SNMP_V3_PRIV_KEY | string | null | if `SNMP_VERSION`==`3`, SNMP Encryption Key |
 SNMP_LISTENING_IP | string | null |  IP address to bind to - default to null, which means bind to all IP addresses | 
 SNMP_OID | integer | 65535 | Enterprise OID to use (see [Note 2](#note-2) above)|
 
-
-
 ## Deploy the Standalone Application
-This Reference APP is built over NodeJS. You must have a [MongoDB](https://www.mongodb.com/try/download/community) server accessible from the AP to get it working.
+This Reference APP is built over NodeJS. You must have a [MongoDB](https://www.mongodb.com/try/download/community) server accessible to get it working.
 
 ### Deploy the Application
-* Install NodeJS LTS: https://nodejs.org/en/download/.
-* Clone this repo.
-* Configure the APP settings, in the `src/.env` file. You will find an example in `src/env_example`. With Docker deployment, all the settings can be configured by using Environment Variables (see above)
-* Install npm packages (`npm install` from the project folder).
-* Start the APP with `npm start` from the `src` folder
-
+1. Install NodeJS LTS: https://nodejs.org/en/download/.
+2. Clone this repo.
+3. Configure the APP settings:
+   * Copy `src/env_example` to `src/.env`.
+   * Edit `src/.env` with your settings.
+4. Install npm packages:
+   ```bash
+   cd src
+   npm install
+   ```
+5. Start the APP:
+   ```bash
+   npm start
+   ```
