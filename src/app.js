@@ -3,7 +3,6 @@ const path = require('path');
 const mongoose = require('mongoose');
 mongoose.Promise = require('bluebird');
 const logger = require("./lib/logger");
-const sync = require("./lib/mist_sync");
 const Agent = require("./lib/mist_snmp").Agent;
 const dotenv = require('dotenv');
 
@@ -99,11 +98,20 @@ mist_snmp = new Agent(
 /*================================================================
  CRON
  ================================================================*/
+const MistSync = require("./lib/mist_sync");
+const mistSync = new MistSync();
+
+mistSync.on('site_added', (data) => mist_snmp.add_site(data));
+mistSync.on('site_updated', (data) => mist_snmp.update_site(data));
+mistSync.on('site_removed', (data) => mist_snmp.remove_site(data));
+mistSync.on('org_updated', (data) => mist_snmp.update_org(data));
+mistSync.on('device_event', (event) => mist_snmp.router(event.type, event.action, event.data));
+
 setTimeout(() => {
-    sync(global.CONFIG.MIST_HOST, global.CONFIG.MIST_TOKEN, global.CONFIG.MIST_ORG_ID, global.CONFIG.MIST_SITE_IDS, mist_snmp)
+    mistSync.sync(global.CONFIG.MIST_HOST, global.CONFIG.MIST_TOKEN, global.CONFIG.MIST_ORG_ID, global.CONFIG.MIST_SITE_IDS)
 }, 1000)
 
 cron.schedule('*/' + global.CONFIG.MIST_SYNC_TIME + ' * * * *', () => {
     console.log('running a task ' + global.CONFIG.MIST_SYNC_TIME + ' minute(s)');
-    sync(global.CONFIG.MIST_HOST, global.CONFIG.MIST_TOKEN, global.CONFIG.MIST_ORG_ID, global.CONFIG.MIST_SITE_IDS, mist_snmp)
+    mistSync.sync(global.CONFIG.MIST_HOST, global.CONFIG.MIST_TOKEN, global.CONFIG.MIST_ORG_ID, global.CONFIG.MIST_SITE_IDS)
 });

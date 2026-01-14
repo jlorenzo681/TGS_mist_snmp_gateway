@@ -5,7 +5,7 @@ const Devices = require("./devices");
 const processIds = require("./common").processIds;
 
 
-function saveDevicesStats(site, devices_from_mist, device_type, model, agent) {
+function saveDevicesStats(site, devices_from_mist, device_type, model, eventEmitter) {
     model.find({ site_id: site.id })
         .sort({ index: -1 })
         .exec((err, devices_from_db) => {
@@ -21,13 +21,13 @@ function saveDevicesStats(site, devices_from_mist, device_type, model, agent) {
                         device.last_updated = Date.now();
                         model(device).save((err, res) => {
                             if (err) logger.error(err);
-                            else agent.router(device_type, "add", res)
+                            else eventEmitter.emit('device_event', { type: device_type, action: "add", data: res })
                         })
                     } else if (ids_to_do.ids_to_update.includes(device.id)) {
                         device.last_updated = Date.now()
                         model.findOneAndUpdate({ site_id: device.site_id, id: device.id }, device, (err, res) => {
                             if (err) logger.error(err);
-                            else agent.router(device_type, "update", res);
+                            else eventEmitter.emit('device_event', { type: device_type, action: "update", data: res });
                         })
                     }
                 })
@@ -36,21 +36,21 @@ function saveDevicesStats(site, devices_from_mist, device_type, model, agent) {
                     if (ids_to_do.ids_to_delete.includes(device.id)) {
                         model.findOneAndDelete({ site_id: device.site_id, id: device.id }, device, (err, res) => {
                             if (err) logger.error(err);
-                            else agent.router(device_type, "remove", device);
+                            else eventEmitter.emit('device_event', { type: device_type, action: "remove", data: device });
                         })
                     }
                 })
         })
 }
 
-module.exports.devices = function (host, token, site, agent) {
+module.exports.devices = function (host, token, site, eventEmitter) {
     Devices.stats(host, token, site.id, "all", (err, devices) => {
         if (err) logger.error(err);
         if (Array.isArray(devices) && devices.length > 0) {
             const aps = devices.filter((device) => { return device.type == "ap" })
             const switches = devices.filter((device) => { return device.type == "switch" })
-            if (aps.length > 0) saveDevicesStats(site, aps, "ap", ApStatModel, agent)
-            if (switches.length > 0) saveDevicesStats(site, switches, "switch", SwitchStatModel, agent)
+            if (aps.length > 0) saveDevicesStats(site, aps, "ap", ApStatModel, eventEmitter)
+            if (switches.length > 0) saveDevicesStats(site, switches, "switch", SwitchStatModel, eventEmitter)
         }
     })
 }
